@@ -1,0 +1,198 @@
+# -----------------------------------------------------------
+# CELL 1: CORRECTED SETUP AND INSTALLATION
+# -----------------------------------------------------------
+
+# Install music21
+!pip install music21 -qq
+
+# Install LilyPond for graphical score output
+# The default LilyPond package name is sometimes slightly different in Colab's base OS
+!apt-get update -qq && apt-get install -y lilypond -qq
+
+# Install FluidSynth for audio rendering (converts MIDI to WAV)
+!apt-get install fluidsynth -y -qq
+
+# Copy a general MIDI soundfont to a known location for FluidSynth
+!cp /usr/share/sounds/sf2/FluidR3_GM.sf2 /etc/TimGM6mb.sf2
+
+print("Cell 1: Installation complete. LilyPond and FluidSynth installed.")
+
+
+  # -----------------------------------------------------------
+# CELL 2: CORRECTED IMPORTS AND CONFIGURATION
+# -----------------------------------------------------------
+
+import music21 as m21
+from IPython.display import display, Audio, clear_output
+from ipywidgets import Text, VBox, Button, Output
+import io
+import numpy as np
+import os
+
+# Configure music21 to use LilyPond and the soundfont path
+# Based on previous successful configuration, set paths directly
+m21.environment.lilypondPath = '/usr/bin/lilypond'
+m21.environment.soundFontPaths = ['/etc/TimGM6mb.sf2']
+
+print("Cell 2: Configuration complete. Run the next cell for core functions.")
+
+
+  # -----------------------------------------------------------
+# CELL 3: CORRECTED CORE MUSIC GENERATION FUNCTIONS (LONGER MUSIC)
+# -----------------------------------------------------------
+
+def create_music_stream(prompt_text):
+    """
+    SIMULATION: Creates a music21 Stream with extended duration (approx. 15+ seconds).
+
+    The code now adds more notes and repeats the initial pattern.
+    """
+    s = m21.stream.Stream()
+
+    # Add Metadata
+    
+    s.insert(0, m21.metadata.Metadata())
+    s.metadata.title = f"AI Generation: '{prompt_text[:40]}...'"
+    s.metadata.composer = 'AI Music Generator'
+
+    # Setup score structure (120 BPM = 2 beats/sec)
+    s.insert(0, m21.tempo.MetronomeMark(number=120))
+    s.insert(0, m21.meter.TimeSignature('4/4'))
+
+    melody = m21.stream.Part()
+    chords = m21.stream.Part()
+
+    # --- MUSICAL CONTENT DEFINITION ---
+
+    # Section 1: C Major - G Major progression (Repeated 4 times)
+    # Total duration: 4 beats * 4 repetitions = 16 beats (8 seconds)
+
+    # Base pattern (4 beats)
+    pat_melody = [
+        m21.note.Note('C4', quarterLength=1.0),
+        m21.note.Note('E4', quarterLength=0.5),
+        m21.note.Note('G4', quarterLength=0.5),
+        m21.note.Note('C5', quarterLength=1.0),
+    ]
+    pat_chords = [
+        m21.chord.Chord(['C3', 'E3', 'G3'], quarterLength=1.0),
+        m21.note.Rest(quarterLength=1.0),
+        m21.chord.Chord(['G3', 'B3', 'D4'], quarterLength=1.0),
+        m21.note.Rest(quarterLength=1.0),
+    ]
+
+    # Repeat the pattern
+    for _ in range(4):
+        melody.append(m21.stream.Stream(pat_melody))
+        chords.append(m21.stream.Stream(pat_chords))
+
+    # Section 2: F Major - C Major - G Major - C Major (New 8-beat section)
+    # Total duration: 8 beats (4 seconds)
+
+    # F Major (2 beats)
+    melody.append(m21.note.Note('F4', quarterLength=1.0))
+    melody.append(m21.note.Note('E4', quarterLength=1.0))
+    chords.append(m21.chord.Chord(['F3', 'A3', 'C4'], quarterLength=2.0))
+
+    # C Major (2 beats)
+    melody.append(m21.note.Note('D4', quarterLength=0.5))
+    melody.append(m21.note.Note('C4', quarterLength=1.5))
+    chords.append(m21.chord.Chord(['C3', 'E3', 'G3'], quarterLength=2.0))
+
+    # G Major (2 beats)
+    melody.append(m21.note.Note('B3', quarterLength=1.0))
+    melody.append(m21.note.Note('G4', quarterLength=1.0))
+    chords.append(m21.chord.Chord(['G3', 'B3', 'D4'], quarterLength=2.0))
+
+    # Final C Major (2 beats)
+    melody.append(m21.note.Note('C4', quarterLength=2.0))
+    chords.append(m21.chord.Chord(['C3', 'E3', 'G3'], quarterLength=2.0))
+
+    # --- END MUSICAL CONTENT ---
+
+    # The total duration is now 16 + 8 = 24 quarter-notes.
+    # At 120 BPM, this is 24 / 2 = 12 seconds of music.
+
+    # Let's add 6 more beats of whole rests to reach ~15 seconds, just to be safe.
+    melody.append(m21.note.Rest(quarterLength=6.0))
+    chords.append(m21.note.Rest(quarterLength=6.0))
+
+    s.insert(0, melody)
+    s.insert(0, chords)
+
+    # Re-insert the audio function (kept the same as it was working)
+
+    return s
+
+def play_midi_with_fluidsynth(music_stream):
+    """Converts the music21 stream to MIDI, renders it to WAV, and displays the audio player."""
+
+    # Save the stream to a MIDI file
+    mf = m21.midi.translate.streamToMidiFile(music_stream)
+    midi_data = mf.writestr()
+
+    # Render MIDI to WAV using FluidSynth via a temporary file
+    with open("temp.midi", "wb") as f:
+        f.write(midi_data)
+
+    # Command to run FluidSynth: -ni is no interface, -F output file, -r rate, -g gain, -q quiet
+    print("Rendering audio... (This may take a moment)")
+    !fluidsynth -ni /etc/TimGM6mb.sf2 temp.midi -F temp.wav -r 44100 -g 0.5 -q
+
+    # Read the generated WAV file and return the audio widget
+    try:
+        with open("temp.wav", "rb") as f:
+            wav_data = f.read()
+        print("Audio generated successfully.")
+        return Audio(wav_data, rate=44100)
+    except FileNotFoundError:
+        print("Error: Could not generate WAV file. Check FluidSynth configuration.")
+        return None
+
+print("Cell 3: Music generation and audio playback functions defined with extended duration.")
+
+
+
+  # -----------------------------------------------------------
+# CELL 4: USER INTERFACE AND EXECUTION
+# -----------------------------------------------------------
+
+# Define the function that runs the entire process when the button is clicked
+def on_button_click(b):
+    with output_area:
+        clear_output(wait=True)
+        print("--- Text-to-Music (Simulated) ---")
+        prompt = text_input.value
+        print(f"Prompt received: '{prompt}'\n")
+
+        # 1. GENERATE MUSIC STREAM
+        music_stream = create_music_stream(prompt)
+
+        # 2. DISPLAY SCORE
+        print("\n--- Generated Sheet Music (using LilyPond) ---")
+        # Ensure the score image is displayed directly below the function call
+        music_stream.show('lilypond')
+
+        # 3. DISPLAY AUDIO PLAYER
+        print("\n--- Audio Playback ---")
+        audio_widget = play_midi_with_fluidsynth(music_stream)
+        if audio_widget:
+            display(audio_widget)
+
+# Create interactive widgets
+text_input = Text(
+    value='A slow, melancholic piece for piano.',
+    placeholder='Type a description of the music you want...',
+    description='Prompt:',
+    disabled=False
+)
+
+generate_button = Button(description="Generate Music")
+output_area = Output()
+
+# Attach the function to the button click event
+generate_button.on_click(on_button_click)
+
+# Display the final interface: Input Box, Button, and Output Area
+print("Cell 4: Displaying the interactive interface. Click 'Generate Music' to run.")
+display(VBox([text_input, generate_button, output_area]))
